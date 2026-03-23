@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workspace ONE — Live Status</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+  :root {
+    --ink:       #0d0f14;
+    --ink2:      #181c24;
+    --ink3:      #1f2535;
+    --line:      #252d3d;
+    --mute:      #3d4a62;
+    --dim:       #6b7a99;
+    --soft:      #a0aec0;
+    --text:      #e8edf5;
+    --hi:        #f0f4ff;
+    --green:     #34d399;
+    --green-bg:  rgba(52,211,153,.10);
+    --yellow:    #fbbf24;
+    --yellow-bg: rgba(251,191,36,.10);
+    --orange:    #fb923c;
+    --orange-bg: rgba(251,146,60,.10);
+    --red:       #f87171;
+    --red-bg:    rgba(248,113,113,.10);
+    --blue:      #60a5fa;
+    --blue-bg:   rgba(96,165,250,.10);
+    --accent:    #818cf8;
+    --accent2:   #a5b4fc;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgba(129,140,248,.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 110%, rgba(52,211,153,.07) 0%, transparent 55%);
+    pointer-events: none; z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none; z-index: 0;
+  }
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 20px;
+    position: relative; z-index: 1;
+  }
+
+  /* ── Header ── */
+  header { padding: 36px 0 0; margin-bottom: 36px; animation: fadeUp .6s ease both; }
+  .header-top {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .brand-eyebrow {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent); opacity: .8; margin-bottom: 4px;
+  }
+  .brand-name {
+    font-family: 'Syne', sans-serif; font-size: 28px;
+    font-weight: 800; line-height: 1; color: var(--hi);
+    letter-spacing: -.02em;
+  }
+  .brand-name span { color: var(--accent2); }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(129,140,248,.10);
+    border: 1px solid rgba(129,140,248,.25);
+    border-radius: 99px; padding: 6px 14px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--accent2); letter-spacing: .06em;
+  }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.8s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1}50%{opacity:.25} }
+
+  /* ── Timer strip ── */
+  .timer-strip {
+    margin-top: 22px;
+    background: var(--ink2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 18px;
+    display: flex; align-items: center; gap: 14px;
+    flex-wrap: wrap; justify-content: space-between;
+  }
+  .timer-left {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1; min-width: 200px;
+  }
+  .timer-label {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--dim); white-space: nowrap;
+  }
+  .timer-track {
+    flex: 1; height: 3px;
+    background: var(--line); border-radius: 2px; overflow: hidden;
+  }
+  .timer-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px; transition: width 1s linear; width: 100%;
+  }
+  .timer-countdown {
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    color: var(--accent2); min-width: 40px; text-align: right;
+  }
+  .meta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .meta-chip {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    color: var(--dim); display: flex; align-items: center; gap: 5px;
+  }
+  .btn-refresh {
+    background: transparent; border: 1px solid var(--line);
+    color: var(--dim); border-radius: 6px; padding: 5px 12px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: all .15s;
+  }
+  .btn-refresh:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-refresh.spin svg { animation: spin .7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* ── Overall card ── */
+  .overall-card {
+    border-radius: 14px; padding: 22px 26px; margin-bottom: 28px;
+    border: 1px solid var(--line); background: var(--ink2);
+    display: flex; align-items: center; gap: 20px;
+    transition: border-color .4s, background .4s;
+    animation: fadeUp .5s .1s ease both;
+  }
+  .overall-card.status-ok   { border-color:rgba(52,211,153,.4);  background:rgba(52,211,153,.04); }
+  .overall-card.status-warn { border-color:rgba(251,191,36,.4);  background:rgba(251,191,36,.04); }
+  .overall-card.status-bad  { border-color:rgba(248,113,113,.4); background:rgba(248,113,113,.04); }
+  .overall-card.status-maint{ border-color:rgba(96,165,250,.4);  background:rgba(96,165,250,.04); }
+  .orb-wrap { position: relative; flex-shrink: 0; }
+  .orb { width: 18px; height: 18px; border-radius: 50%; background: var(--mute); position: relative; z-index:1; }
+  .orb-ring {
+    position: absolute; inset: -6px; border-radius: 50%;
+    animation: ring-pulse 2.5s ease-in-out infinite;
+  }
+  @keyframes ring-pulse { 0%,100%{transform:scale(1);opacity:.5} 60%{transform:scale(1.9);opacity:0} }
+  .orb-green{background:var(--green)} .orb-yellow{background:var(--yellow)}
+  .orb-orange{background:var(--orange)} .orb-red{background:var(--red)}
+  .orb-blue{background:var(--blue)}
+  .ring-green{background:rgba(52,211,153,.35)} .ring-yellow{background:rgba(251,191,36,.35)}
+  .ring-orange{background:rgba(251,146,60,.35)} .ring-red{background:rgba(248,113,113,.35)}
+  .ring-blue{background:rgba(96,165,250,.35)}
+  .overall-info { flex: 1; }
+  .overall-headline {
+    font-family: 'Syne', sans-serif; font-size: 18px;
+    font-weight: 700; color: var(--hi); margin-bottom: 2px;
+  }
+  .overall-sub { font-size: 13px; color: var(--dim); }
+  .indicator-badge {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 5px 12px; border-radius: 6px;
+    text-transform: uppercase; letter-spacing: .07em;
+    white-space: nowrap; border: 1px solid transparent;
+  }
+  .badge-green { background:var(--green-bg); color:var(--green); border-color:rgba(52,211,153,.25); }
+  .badge-yellow{ background:var(--yellow-bg);color:var(--yellow);border-color:rgba(251,191,36,.25); }
+  .badge-orange{ background:var(--orange-bg);color:var(--orange);border-color:rgba(251,146,60,.25); }
+  .badge-red   { background:var(--red-bg);   color:var(--red);   border-color:rgba(248,113,113,.25);}
+  .badge-blue  { background:var(--blue-bg);  color:var(--blue);  border-color:rgba(96,165,250,.25); }
+  .badge-mute  { background:rgba(107,122,153,.1);color:var(--dim);border-color:var(--line); }
+
+  /* ── Section label ── */
+  .section-label {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--mute); margin-bottom: 12px; margin-top: 28px;
+  }
+
+  /* ── Components grid ── */
+  .components-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+    gap: 9px; animation: fadeUp .5s .2s ease both;
+  }
+  .comp-card {
+    background: var(--ink2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 13px 15px;
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+    transition: border-color .2s, transform .15s;
+  }
+  .comp-card:hover { transform: translateY(-1px); border-color: var(--mute); }
+  .comp-name {
+    font-size: 13px; font-weight: 500; color: var(--text);
+    flex: 1; min-width: 0; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .comp-status { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green{background:var(--green)} .dot-yellow{background:var(--yellow)}
+  .dot-orange{background:var(--orange)} .dot-red{background:var(--red)}
+  .dot-blue{background:var(--blue)} .dot-grey{background:var(--mute)}
+  .status-text {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    font-weight: 500; text-transform: uppercase;
+    letter-spacing: .06em; white-space: nowrap;
+  }
+  .st-green{color:var(--green)} .st-yellow{color:var(--yellow)}
+  .st-orange{color:var(--orange)} .st-red{color:var(--red)}
+  .st-blue{color:var(--blue)} .st-grey{color:var(--dim)}
+
+  /* ── Incidents ── */
+  .incidents-wrap {
+    display: flex; flex-direction: column; gap: 10px;
+    animation: fadeUp .5s .3s ease both;
+  }
+  .incident-card {
+    background: var(--ink2); border: 1px solid var(--line);
+    border-left: 3px solid var(--mute);
+    border-radius: 10px; padding: 15px 18px;
+  }
+  .incident-card.crit  { border-left-color: var(--red); }
+  .incident-card.major { border-left-color: var(--orange); }
+  .incident-card.minor { border-left-color: var(--yellow); }
+  .incident-card.maint { border-left-color: var(--blue); }
+  .inc-top {
+    display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 10px; margin-bottom: 5px;
+  }
+  .inc-name { font-weight: 600; font-size: 14px; color: var(--hi); line-height: 1.4; }
+  .inc-meta { font-size: 12px; color: var(--dim); }
+  .inc-update {
+    margin-top: 8px; font-size: 12px; color: var(--soft);
+    padding: 7px 10px; background: rgba(255,255,255,.03);
+    border-radius: 6px; line-height: 1.5;
+  }
+  .no-incidents {
+    text-align: center; padding: 30px;
+    border: 1px dashed var(--line); border-radius: 10px;
+    color: var(--dim); font-size: 13px;
+  }
+
+  /* ── Email bar ── */
+  .email-bar {
+    margin-top: 28px;
+    background: var(--ink2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap; animation: fadeUp .5s .4s ease both;
+  }
+  .email-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(129,140,248,.12);
+    border: 1px solid rgba(129,140,248,.2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .email-info { flex: 1; }
+  .email-title { font-weight: 500; color: var(--text); font-size: 13px; }
+  .email-sub { font-size: 12px; color: var(--dim); margin-top: 1px; }
+  .email-chip {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    padding: 3px 10px; border-radius: 5px;
+    border: 1px solid var(--line); color: var(--dim);
+    transition: all .3s; white-space: nowrap;
+  }
+  .email-chip.sending { border-color:rgba(251,191,36,.4); color:var(--yellow); }
+  .email-chip.sent    { border-color:rgba(52,211,153,.4);  color:var(--green); }
+  .email-chip.error   { border-color:rgba(248,113,113,.4); color:var(--red); }
+
+  /* ── Setup banner ── */
+  .setup-banner {
+    margin-top: 24px;
+    background: rgba(251,191,36,.06);
+    border: 1px solid rgba(251,191,36,.25);
+    border-radius: 10px; padding: 18px 22px;
+    animation: fadeUp .5s .5s ease both;
+  }
+  .setup-title {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 14px; color: var(--yellow);
+    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .setup-body { font-size: 13px; color: var(--soft); line-height: 1.75; }
+  .setup-body code {
+    font-family: 'DM Mono', monospace;
+    background: rgba(255,255,255,.06);
+    padding: 1px 6px; border-radius: 4px;
+    font-size: 12px; color: var(--accent2);
+  }
+  .setup-body ol { margin: 10px 0 0 20px; }
+  .setup-body li { margin-bottom: 7px; }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 48px; padding: 22px 0 30px;
+    border-top: 1px solid var(--line);
+    display: flex; align-items: center;
+    justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    animation: fadeUp .5s .6s ease both;
+  }
+  .footer-text { font-family:'DM Mono',monospace; font-size:10px; color:var(--mute); letter-spacing:.06em; }
+  .footer-link {
+    font-family:'DM Mono',monospace; font-size:10px;
+    color:var(--accent); text-decoration:none; opacity:.7; transition:opacity .15s;
+  }
+  .footer-link:hover { opacity:1; }
+
+  /* ── Skeleton ── */
+  .skel {
+    background: linear-gradient(90deg, var(--ink2) 25%, var(--ink3) 50%, var(--ink2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite; border-radius: 4px;
+  }
+  @keyframes shimmer { to{background-position:-200% 0} }
+
+  /* ── Toast ── */
+  #toast-rack {
+    position: fixed; bottom: 20px; right: 20px;
+    display: flex; flex-direction: column; gap: 8px; z-index: 999;
+  }
+  .toast {
+    background: var(--ink3); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 16px;
+    min-width: 260px; max-width: 340px;
+    display: flex; gap: 10px; align-items: flex-start;
+    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    animation: slideIn .25s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
+  .toast-ico { font-size: 17px; margin-top: 1px; flex-shrink: 0; }
+  .toast-t { font-weight: 600; font-size: 13px; color: var(--hi); margin-bottom: 2px; }
+  .toast-m { font-size: 12px; color: var(--dim); line-height: 1.4; }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+
+  @media(max-width:560px){
+    .brand-name{font-size:22px}
+    .overall-card{flex-wrap:wrap}
+    .components-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div id="toast-rack"></div>
+<div class="wrap">
+
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="brand-eyebrow">Live Status Dashboard</div>
+        <div class="brand-name">Workspace<span>ONE</span></div>
+      </div>
+      <div class="live-pill"><div class="live-dot"></div>LIVE MONITORING</div>
+    </div>
+    <div class="timer-strip">
+      <div class="timer-left">
+        <span class="timer-label">Next refresh</span>
+        <div class="timer-track"><div class="timer-bar" id="timerBar"></div></div>
+        <span class="timer-countdown" id="timerCountdown">5:00</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-chip">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="lastUpdatedText">—</span>
+        </span>
+        <button class="btn-refresh" id="refreshBtn" onclick="manualRefresh()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh now
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="overall-card" id="overallCard">
+    <div class="orb-wrap">
+      <div class="orb" id="overallOrb"></div>
+      <div class="orb-ring" id="overallRing"></div>
+    </div>
+    <div class="overall-info">
+      <div class="overall-headline" id="overallHeadline">Connecting…</div>
+      <div class="overall-sub" id="overallSub">Fetching from status.workspaceone.com</div>
+    </div>
+    <span class="indicator-badge badge-mute" id="overallBadge">—</span>
+  </div>
+
+  <div class="section-label">Components</div>
+  <div class="components-grid" id="componentsGrid">
+    <div class="comp-card"><div class="skel" style="height:13px;width:55%"></div><div class="skel" style="height:11px;width:22%"></div></div>
+    <div class="comp-card"><div class="skel" style="height:13px;width:65%"></div><div class="skel" style="height:11px;width:22%"></div></div>
+    <div class="comp-card"><div class="skel" style="height:13px;width:45%"></div><div class="skel" style="height:11px;width:22%"></div></div>
+    <div class="comp-card"><div class="skel" style="height:13px;width:70%"></div><div class="skel" style="height:11px;width:22%"></div></div>
+    <div class="comp-card"><div class="skel" style="height:13px;width:50%"></div><div class="skel" style="height:11px;width:22%"></div></div>
+    <div class="comp-card"><div class="skel" style="height:13px;width:60%"></div><div class="skel" style="height:11px;width:22%"></div></div>
+  </div>
+
+  <div class="section-label">Active Incidents</div>
+  <div class="incidents-wrap" id="incidentsWrap">
+    <div class="comp-card"><div class="skel" style="height:13px;width:80%"></div></div>
+  </div>
+
+  <div class="section-label" id="maintLabel" style="display:none">Scheduled Maintenance</div>
+  <div class="incidents-wrap" id="maintWrap" style="display:none"></div>
+
+  <div class="email-bar">
+    <div class="email-icon">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 4 12 13 22 4"/></svg>
+    </div>
+    <div class="email-info">
+      <div class="email-title">Auto Status Reports</div>
+      <div class="email-sub">Sending to reddylivermate@gmail.com after every auto-refresh</div>
+    </div>
+    <span class="email-chip" id="emailChip">Standby</span>
+  </div>
+
+  <div class="setup-banner" id="setupBanner">
+    <div class="setup-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      One-Time Email Setup Required
+    </div>
+    <div class="setup-body">
+      This page uses <strong>EmailJS</strong> — free, works 100% on GitHub Pages with no backend needed.
+      <ol>
+        <li>Sign up free at <strong>emailjs.com</strong></li>
+        <li>Add an Email Service (connect your Gmail) → copy the <code>Service ID</code></li>
+        <li>Create an Email Template with variables <code>{{to_email}}</code>, <code>{{subject}}</code>, <code>{{message}}</code> → copy the <code>Template ID</code></li>
+        <li>Go to Account → API Keys → copy your <code>Public Key</code></li>
+        <li>Open this file and replace the three values near the top of the <code>&lt;script&gt;</code> tag:
+          <br><code>EMAILJS_PUBLIC_KEY</code>, <code>EMAILJS_SERVICE_ID</code>, <code>EMAILJS_TEMPLATE_ID</code></li>
+        <li>Push to GitHub Pages — this banner will disappear automatically once credentials are set.</li>
+      </ol>
+    </div>
+  </div>
+
+  <footer>
+    <span class="footer-text">SOURCE: STATUS.WORKSPACEONE.COM · AUTO-REFRESH EVERY 5 MIN</span>
+    <a class="footer-link" href="https://status.workspaceone.com/" target="_blank">↗ Official status page</a>
+  </footer>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   CONFIGURATION — Replace with your EmailJS values
+   ═══════════════════════════════════════════════ */
+const EMAILJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';
+const EMAILJS_SERVICE_ID  = 'YOUR_SERVICE_ID';
+const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
+
+const RECIPIENT_EMAIL      = 'reddylivermate@gmail.com';
+const REFRESH_INTERVAL_SEC = 300; // 5 minutes
+/* ══════════════════════════════════════════════ */
+
+const API  = 'https://status.workspaceone.com/api/v2';
+const configured = !EMAILJS_PUBLIC_KEY.includes('YOUR_');
+
+if (configured) {
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+  document.getElementById('setupBanner').style.display = 'none';
+}
+
+const STATUS = {
+  operational:          { label:'Operational',    dot:'dot-green',  st:'st-green',  orb:'orb-green',  ring:'ring-green',  badge:'badge-green',  card:'status-ok'   },
+  degraded_performance: { label:'Degraded',       dot:'dot-yellow', st:'st-yellow', orb:'orb-yellow', ring:'ring-yellow', badge:'badge-yellow', card:'status-warn' },
+  partial_outage:       { label:'Partial Outage', dot:'dot-orange', st:'st-orange', orb:'orb-orange', ring:'ring-orange', badge:'badge-orange', card:'status-bad'  },
+  major_outage:         { label:'Major Outage',   dot:'dot-red',    st:'st-red',    orb:'orb-red',    ring:'ring-red',    badge:'badge-red',    card:'status-bad'  },
+  under_maintenance:    { label:'Maintenance',    dot:'dot-blue',   st:'st-blue',   orb:'orb-blue',   ring:'ring-blue',   badge:'badge-blue',   card:'status-maint'},
+};
+const INDICATORS = {
+  none:        { headline:'All Systems Operational',    sub:'All services running normally.',          ...STATUS.operational          },
+  minor:       { headline:'Minor Issues Detected',      sub:'Some services experiencing disruption.',  ...STATUS.degraded_performance },
+  major:       { headline:'Major Service Disruption',   sub:'Multiple services are impacted.',         ...STATUS.partial_outage       },
+  critical:    { headline:'Critical System Outage',     sub:'Major services are down.',                ...STATUS.major_outage         },
+  maintenance: { headline:'Maintenance In Progress',    sub:'Scheduled maintenance is underway.',      ...STATUS.under_maintenance    },
+};
+
+function getS(s){ return STATUS[s] || {label:s||'Unknown',dot:'dot-grey',st:'st-grey',orb:'',ring:'',badge:'badge-mute',card:''}; }
+function getI(i){ return INDICATORS[i] || INDICATORS.minor; }
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtTime(d){ return new Intl.DateTimeFormat('en-HK',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d); }
+function fmtDT(s){ if(!s)return''; return new Intl.DateTimeFormat('en-HK',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(s)); }
+function fmtCD(s){ return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+
+function toast(icon, title, msg, ms=5000){
+  const rack=document.getElementById('toast-rack');
+  const el=document.createElement('div'); el.className='toast';
+  el.innerHTML=`<div class="toast-ico">${icon}</div><div><div class="toast-t">${esc(title)}</div><div class="toast-m">${esc(msg)}</div></div>`;
+  rack.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(20px)';el.style.transition='all .3s';setTimeout(()=>el.remove(),300);},ms);
+}
+
+async function fetchStatus(){
+  const [sumRes,incRes,maintRes] = await Promise.all([
+    fetch(`${API}/summary.json`),
+    fetch(`${API}/incidents/unresolved.json`),
+    fetch(`${API}/scheduled-maintenances/upcoming.json`),
+  ]);
+  if(!sumRes.ok) throw new Error(`HTTP ${sumRes.status}`);
+  const sum  = await sumRes.json();
+  const inc  = incRes.ok   ? await incRes.json()  : {incidents:[]};
+  const maint= maintRes.ok ? await maintRes.json(): {scheduled_maintenances:[]};
+  return {
+    indicator:   sum.status?.indicator   || 'none',
+    description: sum.status?.description || '',
+    components:  (sum.components||[]).filter(c=>!c.group),
+    incidents:   inc.incidents||[],
+    maintenance: maint.scheduled_maintenances||[],
+  };
+}
+
+function render(data){
+  const ind=getI(data.indicator);
+
+  // Overall
+  document.getElementById('overallCard').className=`overall-card ${ind.card}`;
+  document.getElementById('overallHeadline').textContent=ind.headline;
+  document.getElementById('overallSub').textContent=data.description||ind.sub;
+  document.getElementById('overallOrb').className=`orb ${ind.orb}`;
+  document.getElementById('overallRing').className=`orb-ring ${ind.ring}`;
+  const badge=document.getElementById('overallBadge');
+  badge.className=`indicator-badge ${ind.badge}`; badge.textContent=ind.label;
+
+  // Components
+  const grid=document.getElementById('componentsGrid');
+  grid.innerHTML=data.components.map(c=>{
+    const s=getS(c.status);
+    return `<div class="comp-card"><span class="comp-name">${esc(c.name)}</span>
+      <div class="comp-status"><div class="dot ${s.dot}"></div><span class="status-text ${s.st}">${s.label}</span></div></div>`;
+  }).join('');
+
+  // Incidents
+  const iw=document.getElementById('incidentsWrap');
+  if(!data.incidents.length){
+    iw.innerHTML=`<div class="no-incidents">✓ No active incidents — all systems healthy</div>`;
+  } else {
+    iw.innerHTML=data.incidents.map(i=>{
+      const imp=i.impact||'minor';
+      const bCls=imp==='critical'?'badge-red':imp==='major'?'badge-orange':imp==='maintenance'?'badge-blue':'badge-yellow';
+      const latest=i.incident_updates?.[0];
+      return `<div class="incident-card ${imp}">
+        <div class="inc-top"><div class="inc-name">${esc(i.name)}</div>
+        <span class="indicator-badge ${bCls}">${esc(imp)}</span></div>
+        <div class="inc-meta">${esc((i.status||'').replace(/_/g,' '))} · ${fmtDT(i.updated_at)}</div>
+        ${latest?`<div class="inc-update">${esc(latest.body)}</div>`:''}
+      </div>`;
+    }).join('');
+  }
+
+  // Maintenance
+  const mw=document.getElementById('maintWrap');
+  const ml=document.getElementById('maintLabel');
+  if(data.maintenance.length){
+    ml.style.display=''; mw.style.display='';
+    mw.innerHTML=data.maintenance.map(m=>`<div class="incident-card maint">
+      <div class="inc-top"><div class="inc-name">${esc(m.name)}</div>
+      <span class="indicator-badge badge-blue">Scheduled</span></div>
+      <div class="inc-meta">${fmtDT(m.scheduled_for)} → ${fmtDT(m.scheduled_until)}</div>
+      ${m.incident_updates?.[0]?`<div class="inc-update">${esc(m.incident_updates[0].body)}</div>`:''}
+    </div>`).join('');
+  } else { ml.style.display='none'; mw.style.display='none'; }
+
+  document.getElementById('lastUpdatedText').textContent='Updated '+fmtTime(new Date());
+}
+
+function buildEmailBody(data){
+  const ind=getI(data.indicator);
+  const now=new Intl.DateTimeFormat('en-HK',{dateStyle:'full',timeStyle:'medium'}).format(new Date());
+  const sep='─'.repeat(54);
+  let b=`WORKSPACE ONE — STATUS REPORT\n${sep}\nGenerated : ${now} (HKT)\nOverall   : ${ind.headline.toUpperCase()}\n`;
+  if(data.description) b+=`Note      : ${data.description}\n`;
+
+  b+=`\nCOMPONENT STATUS\n${sep}\n`;
+  data.components.forEach(c=>{ b+=`${c.name.padEnd(38)}${getS(c.status).label}\n`; });
+
+  if(data.incidents.length){
+    b+=`\nACTIVE INCIDENTS (${data.incidents.length})\n${sep}\n`;
+    data.incidents.forEach(i=>{
+      b+=`[${(i.impact||'MINOR').toUpperCase()}] ${i.name}\nStatus  : ${(i.status||'').replace(/_/g,' ')} · Updated: ${fmtDT(i.updated_at)}\n`;
+      if(i.incident_updates?.[0]) b+=`Latest  : ${i.incident_updates[0].body}\n`;
+      b+='\n';
+    });
+  } else { b+=`\nACTIVE INCIDENTS\n${sep}\nNone — all clear.\n`; }
+
+  if(data.maintenance.length){
+    b+=`\nSCHEDULED MAINTENANCE\n${sep}\n`;
+    data.maintenance.forEach(m=>{ b+=`${m.name}\n${fmtDT(m.scheduled_for)} → ${fmtDT(m.scheduled_until)}\n\n`; });
+  }
+
+  b+=`\n${sep}\nSource: https://status.workspaceone.com/\n`;
+  return b;
+}
+
+async function sendEmail(data){
+  if(!configured) return;
+  const chip=document.getElementById('emailChip');
+  chip.textContent='Sending…'; chip.className='email-chip sending';
+  const ind=getI(data.indicator);
+  const subject=`[WS1] ${ind.headline} — ${new Date().toLocaleDateString('en-HK')}`;
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID,
+      { to_email:RECIPIENT_EMAIL, subject, message:buildEmailBody(data) });
+    chip.textContent='Sent ✓'; chip.className='email-chip sent';
+    toast('📧','Report Sent',`Emailed to ${RECIPIENT_EMAIL}`);
+    setTimeout(()=>{ chip.textContent='Standby'; chip.className='email-chip'; },8000);
+  } catch(err){
+    chip.textContent='Failed'; chip.className='email-chip error';
+    toast('❌','Email Failed',err?.text||err?.message||'Check EmailJS credentials in the source file');
+    setTimeout(()=>{ chip.textContent='Standby'; chip.className='email-chip'; },12000);
+  }
+}
+
+async function doFetch(sendMail=true){
+  const btn=document.getElementById('refreshBtn'); btn.classList.add('spin');
+  try {
+    const data=await fetchStatus();
+    render(data);
+    if(sendMail) await sendEmail(data);
+  } catch(err){
+    toast('⚠️','Fetch Error',err.message||'Could not reach Statuspage API');
+    document.getElementById('overallHeadline').textContent='Could not load status';
+    document.getElementById('overallSub').textContent=err.message;
+  } finally { btn.classList.remove('spin'); }
+}
+
+function manualRefresh(){
+  timerLeft=REFRESH_INTERVAL_SEC; updateTimer();
+  doFetch(false);
+  toast('🔄','Refreshed','Loaded latest data. Email sends on auto-refresh only.');
+}
+
+let timerLeft=REFRESH_INTERVAL_SEC;
+function updateTimer(){
+  document.getElementById('timerBar').style.width=(timerLeft/REFRESH_INTERVAL_SEC*100)+'%';
+  document.getElementById('timerCountdown').textContent=fmtCD(timerLeft);
+}
+setInterval(()=>{ timerLeft--; updateTimer(); if(timerLeft<=0){ timerLeft=REFRESH_INTERVAL_SEC; doFetch(true); } },1000);
+
+// Boot
+updateTimer();
+doFetch(false); // initial load — no email on first open
+</script>
+</body>
+</html>
